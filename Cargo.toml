@@ -1,0 +1,13 @@
+[package]
+name = "ton-rs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ed25519 = { version = "2.2.3" }
+reqwest = { version = "0.11.24" }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = { version = "1.0.114" }
+tokio = { version = "1.36.0", features = ["rt", "macros"] }
