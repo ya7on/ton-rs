@@ -16,7 +16,7 @@ impl LiteServerClient {
     }
 
     async fn get_global_config(url: &str) -> TONAPIResult<GlobalConfig> {
-        let global_config_response = reqwest::get(TESTNET_GLOBAL_CONFIG).await.map_err(|err| {
+        let global_config_response = reqwest::get(url).await.map_err(|err| {
             TONAPIError::GlobalConfigError(format!("Cannot send request to global config: {}", err))
         })?;
         if !global_config_response.status().is_success() {
