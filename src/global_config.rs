@@ -1,20 +1,20 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LiteServerId {
     #[serde(rename = "@type")]
-    _type: String,
-    key: String,
+    pub _type: String,
+    pub key: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LiteServer {
-    ip: i32,
-    port: u16,
-    id: LiteServerId,
+    pub ip: i32,
+    pub port: u16,
+    pub id: LiteServerId,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GlobalConfig {
     pub liteservers: Vec<LiteServer>,
 }
