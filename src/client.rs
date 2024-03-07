@@ -1,5 +1,9 @@
 use crate::error::{TONAPIError, TONAPIResult};
 use crate::global_config::{GlobalConfig, LiteServer};
+use ctr::cipher::{KeyIvInit, StreamCipher};
+use ed25519_dalek::SigningKey;
+use rand::rngs::OsRng;
+use sha256::digest;
 use std::iter::Cycle;
 use std::vec::IntoIter;
 use tokio::net::TcpStream;
@@ -59,6 +63,8 @@ impl LiteServerClient {
         let current_literver = liteservers.current();
         let tcp = Self::init_tcp_connection(current_literver).await?;
 
+        let handshake_ciphers = Self::generate_handshake_ciphers(&current_literver.id.key);
+
         Ok(Self { liteservers, tcp })
     }
 
@@ -88,7 +94,7 @@ impl LiteServerClient {
         let mut number = number;
         let mut result = vec![];
 
-        loop {
+        for _ in 0..4 {
             if number < 256 {
                 result.push(number.to_string());
                 break;
@@ -104,6 +110,7 @@ impl LiteServerClient {
         result.join(".")
     }
 
+    /// Opens a new TCP connection to liteserver
     async fn init_tcp_connection(liteserver: &LiteServer) -> TONAPIResult<TcpStream> {
         let ip_addr = Self::decimal_to_ip(liteserver.ip);
         let address = format!("{}:{}", ip_addr, liteserver.port);
@@ -112,6 +119,46 @@ impl LiteServerClient {
             .map_err(|err| TONAPIError::TCPError(format!("TCP connection error: {}", err)))?;
         Ok(stream)
     }
+
+    fn generate_handshake_ciphers(public_key: &str) -> HandshakeCiphers {
+        let mut key_id_body = Vec::new();
+        key_id_body.append(&mut [0xC6, 0xB4, 0x13, 0x48].to_vec());
+        key_id_body.append(&mut public_key.as_bytes().to_vec());
+        let server_key_id = digest(key_id_body);
+        let signing_key = SigningKey::generate(&mut OsRng);
+
+        let random_160_bytes = [0; 160].map(|_| rand::random::<u8>());
+        let hash = digest(&random_160_bytes);
+
+        // TODO VALIDATE PUBLIC KEY LENGTH
+        let mut key = String::new();
+        key.push_str(&public_key[0..16]);
+        key.push_str(&hash[16..32]);
+
+        let mut iv = String::new();
+        iv.push_str(&hash[0..4]);
+        iv.push_str(&public_key[20..32]);
+
+        let mut cipher =
+            ctr::Ctr32LE::<aes::Aes256>::new(key.as_bytes().into(), iv.as_bytes().into());
+        let mut encrypted_random_bytes = random_160_bytes.to_vec();
+        cipher.apply_keystream(&mut encrypted_random_bytes);
+
+        HandshakeCiphers {
+            server_key_id,
+            signing_key,
+            hash,
+            encrypted_random_bytes,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct HandshakeCiphers {
+    pub server_key_id: String,
+    pub signing_key: SigningKey,
+    pub hash: String,
+    pub encrypted_random_bytes: Vec<u8>,
 }
 
 #[cfg(test)]
